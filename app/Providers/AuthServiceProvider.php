@@ -2,9 +2,10 @@
 
 namespace App\Providers;
 
-// use Illuminate\Support\Facades\Gate;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use App\Models\Vereador;
+use App\Policies\VereadorPolicy;
 use App\Policies\MenuPolicy;
 
 class AuthServiceProvider extends ServiceProvider
@@ -15,18 +16,20 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        // 'App\Models\Model' => 'App\Policies\ModelPolicy',
+        Vereador::class => VereadorPolicy::class,
     ];
 
     /**
      * Register any authentication / authorization services.
-     *
-     * @return void
      */
-    public function boot()
+    public function boot(): void
     {
         $this->registerPolicies();
 
-    Gate::define('menu.ver', [MenuPolicy::class, 'verMenu']);
+        // Gate para exibir itens de menu conforme habilidade
+        Gate::define('menu.ver', [MenuPolicy::class, 'verMenu']);
+
+        // Se preferir sem MenuPolicy, use a versão abaixo e remova a linha acima:
+        // Gate::define('menu.ver', fn(\App\Models\User $user, string $ability) => $user->can($ability));
     }
 }

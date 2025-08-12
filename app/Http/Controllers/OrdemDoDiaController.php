@@ -12,39 +12,48 @@ use Illuminate\Validation\Rule;
 
 class OrdemDoDiaController extends Controller
 {
-    // GET /sessoes/{sessao}/ordem-do-dia
-    public function index(\Illuminate\Http\Request $request, Sessao $sessao)
-{
-    $itens = $sessao->ordemItens()->with('materia.tipo')->get();
+    // GET /ordem-do-dia
+    public function root(Request $request)
+    {
+        // sessão corrente: a mais recente por data
+        $sessao = Sessao::orderByDesc('data')->firstOrFail();
 
-    if ($request->wantsJson()) {
-        return response()->json([
-            'sessao' => $sessao->only(['id','numero','ano','tipo','status','data']),
-            'itens'  => $itens->map(fn($i) => [
-                'id' => $i->id,
-                'posicao' => $i->posicao,
-                'situacao' => $i->situacao,
-                'materia' => [
-                    'id' => $i->materia->id,
-                    'tipo' => $i->materia->tipo->sigla ?? null,
-                    'numero' => $i->materia->numero,
-                    'ano' => $i->materia->ano,
-                    'ementa' => $i->materia->ementa,
-                ],
-            ]),
-        ]);
+        // renderiza a mesma tela do index, sem redirecionar
+        return $this->index($request, $sessao);
     }
 
-    // HTML (Blade)
-    $materiasDisponiveis = \App\Models\Materia::where('status', 'pronta_pauta')
-        ->whereNotIn('id', $itens->pluck('materia_id'))
-        ->orderBy('ano', 'desc')->orderBy('numero')
-        ->with('tipo')
-        ->get();
+    // GET /sessoes/{sessao}/ordem-do-dia
+    public function index(\Illuminate\Http\Request $request, Sessao $sessao)
+    {
+        $itens = $sessao->ordemItens()->with('materia.tipo')->get();
 
-    return view('sessoes.ordem.index', compact('sessao', 'itens', 'materiasDisponiveis'));
-}
+        if ($request->wantsJson()) {
+            return response()->json([
+                'sessao' => $sessao->only(['id','numero','ano','tipo','status','data']),
+                'itens'  => $itens->map(fn($i) => [
+                    'id' => $i->id,
+                    'posicao' => $i->posicao,
+                    'situacao' => $i->situacao,
+                    'materia' => [
+                        'id' => $i->materia->id,
+                        'tipo' => $i->materia->tipo->sigla ?? null,
+                        'numero' => $i->materia->numero,
+                        'ano' => $i->materia->ano,
+                        'ementa' => $i->materia->ementa,
+                    ],
+                ]),
+            ]);
+        }
 
+        // HTML (Blade)
+        $materiasDisponiveis = \App\Models\Materia::where('status', 'pronta_pauta')
+            ->whereNotIn('id', $itens->pluck('materia_id'))
+            ->orderBy('ano', 'desc')->orderBy('numero')
+            ->with('tipo')
+            ->get();
+
+        return view('sessoes.ordem.index', compact('sessao', 'itens', 'materiasDisponiveis'));
+    }
 
     // POST /sessoes/{sessao}/ordem-do-dia
     public function store(Request $request, Sessao $sessao)

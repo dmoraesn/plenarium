@@ -9,38 +9,26 @@ class Vereador extends Model
 {
     use HasFactory;
 
-    /**
-     * Nome explícito da tabela.
-     *
-     * @var string
-     */
+    // 👇 força o nome correto da tabela
+    protected $table = 'vereadores';
 
-protected $table = 'vereadores';
-protected $fillable = ['nome_parlamentar','nome_completo','partido_id','foto','ativo'];
-
-    /**
-     * Casts de atributos.
-     *
-     * @var array<string, string>
-     */
-    protected $casts = [
-        'ativo' => 'boolean',
+    protected $fillable = [
+        'nome_parlamentar', 'nome_completo', 'partido_id', 'foto', 'ativo',
     ];
 
-    /**
-     * Relacionamentos.
-     */
+    protected $casts = [
+        'ativo' => 'bool',
+    ];
+
     public function partido()
     {
-        // Chave estrangeira explícita por clareza
-        return $this->belongsTo(Partido::class, 'partido_id');
+        return $this->belongsTo(Partido::class);
     }
 
-    /**
-     * Escopo auxiliar (opcional).
-     */
-    public function scopeAtivos($query)
+    public function getFotoUrlAttribute(): string
     {
-        return $query->where('ativo', true);
+        return $this->foto
+            ? asset('storage/'.$this->foto)
+            : asset('images/avatar-vereador.svg');
     }
 }

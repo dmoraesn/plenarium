@@ -1,54 +1,68 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\OrdemDoDiaController;
+use App\Http\Controllers\SessaoController;
+use App\Http\Controllers\VereadorController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| contains the "web" middleware group. Now create something great!
-|
 */
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', fn () => view('welcome'));
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', fn () => view('dashboard'))
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // Perfil
+    Route::get('/profile',  [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile',[ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile',[ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // ---------------------------
+    // Sessões
+    // ---------------------------
+    Route::get('/sessoes', [SessaoController::class, 'index'])->name('sessoes.index');
+    Route::get('/sessoes/{sessao}', [SessaoController::class, 'show'])->name('sessoes.show');
+
+    // ---------------------------
+    // Ordem do Dia
+    // ---------------------------
+    // nível 0 (sem redirect)
+    Route::get('/ordem-do-dia', [OrdemDoDiaController::class, 'root'])->name('ordem.index');
+
+    // por sessão
+    Route::get('/sessoes/{sessao}/ordem-do-dia', [OrdemDoDiaController::class, 'index'])
+        ->name('sessoes.ordem.index');
+
+    Route::post('/sessoes/{sessao}/ordem-do-dia/itens', [OrdemDoDiaController::class, 'store'])
+        ->name('sessoes.ordem.store');
+
+    Route::delete('/ordem-itens/{item}', [OrdemDoDiaController::class, 'destroy'])
+        ->whereNumber('item')
+        ->name('sessoes.ordem.destroy');
+
+    // ---------------------------
+    // Vereadores (resource com parâmetro e nomes padronizados)
+    // ---------------------------
+    Route::resource('vereadores', VereadorController::class)
+        ->parameters(['vereadores' => 'vereador'])
+        ->names('vereadores');
+
+    Route::patch('vereadores/{vereador}/toggle', [VereadorController::class, 'toggle'])
+        ->name('vereadores.toggle');
 });
 
-require __DIR__.'/auth.php';
-
-// Placeholders temporários (páginas em construção)
+// Páginas WIP (não colidem com controladores acima)
 Route::view('/wip', 'wip')->name('wip');
-
-Route::view('/vereadores', 'wip')->name('vereadores.index');
 Route::view('/materias', 'wip')->name('materias.index');
-Route::view('/sessoes', 'wip')->name('sessoes.index');
-Route::view('/ordem-do-dia', 'wip')->name('sessoes.ordem.index');
 Route::view('/presencas', 'wip')->name('sessoes.presencas.index');
 Route::view('/configuracoes', 'wip')->name('configuracoes.index');
 Route::view('/relatorios', 'wip')->name('relatorios.index');
 
-
-
-Route::prefix('sessoes/{sessao}')->name('sessoes.')->group(function () {
-    // Ordem do Dia
-    Route::get('ordem-do-dia',        [OrdemDoDiaController::class, 'index'])->name('ordem.index');      // GET
-    Route::post('ordem-do-dia',       [OrdemDoDiaController::class, 'store'])->name('ordem.store');      // POST
-    Route::delete('ordem-do-dia/{item}', [OrdemDoDiaController::class, 'destroy'])
-        ->whereNumber('item')->name('ordem.destroy');                                                     // DELETE
-    Route::patch('ordem-do-dia/reordenar', [OrdemDoDiaController::class, 'reorder'])->name('ordem.reorder'); // PATCH
-});
+require __DIR__.'/auth.php';
