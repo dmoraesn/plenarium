@@ -3,42 +3,135 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 
 class Materia extends Model
 {
+    use HasFactory;
+
+    protected $table = 'materias';
+
     protected $fillable = [
-        'tipo_materia_id','numero','ano','ementa','status','ativo'
+        'tipo_materia_id',
+        'numero',
+        'ano',
+        'ementa',
+        'status',
     ];
 
-    // Estados aceitos (como constantes – PHP 8.0 não tem enum nativo)
-    public const STATUS = [
-        'rascunho','protocolada','em_comissoes','pronta_pauta',
-        'adiada','retirada','aprovada','rejeitada','arquivada',
+    /** Casts úteis para evitar surpresas com strings */
+    protected $casts = [
+        'numero' => 'integer',
+        'ano'    => 'integer',
     ];
+
+    /** (Opcional) default para novos registros */
+    protected $attributes = [
+        'status' => 'rascunho',
+    ];
+
+    /** Status permitidos para filtros/UI */
+    public const STATUS = [
+        'rascunho',
+        'pronta_pauta',
+        'arquivada',
+        'aprovada',
+        'rejeitada',
+        'retirada',
+    ];
+
+    /* ============================
+     |  Relacionamentos
+     * ============================ */
 
     public function tipo()
     {
         return $this->belongsTo(TipoMateria::class, 'tipo_materia_id');
     }
 
-    public function autores()   // inclui autores e coautores
+    public function autores()
     {
-        return $this->belongsToMany(Vereador::class, 'materia_autores')
-                    ->withPivot('papel')
-                    ->withTimestamps();
+        return $this->belongsToMany(Vereador::class, 'materia_vereador', 'materia_id', 'vereador_id')
+            ->withTimestamps();
     }
 
-    public function anexos()
+    /* ============================
+     |  Acessors
+     * ============================ */
+
+    /** Helper para exibir "numero/ano" na view */
+    public function getNumeroAnoAttribute(): string
     {
-        return $this->hasMany(MateriaAnexo::class);
+        return "{$this->numero}/{$this->ano}";
     }
 
+    /* ============================
+     |  Query Scopes
+     * ============================ */
 
-    public function sessoes()
-{
-    return $this->belongsToMany(Sessao::class, 'ordem_itens')
-                ->withPivot(['posicao','situacao','justificativa'])
-                ->withTimestamps();
-}
+    /**
+     * Busca por termo na ementa e (opcionalmente) por número/ano.
+     */
+    public function scopeSearch(Builder $query, ?string $term): Builder
+    {
+        $term = trim((string) $term);
+        if ($term === '') {
+            return $query;
+        }
 
+        return $query->where(function ($w) use ($term) {
+            $w->where('ementa', 'like', "%{$term}%");
+
+            if (preg_match('#^(\d{1,5})(?:/(\d{4}))?$#', $term, $m)) {
+                $w->orWhere('numero', (int) $m[1]);
+
+                if (!empty($m[2])) {
+                    $w->orWhere(fn ($x) => $x
+                        ->where('numero', (int) $m[1])
+                        ->where('ano', (int) $m[2]));
+                }
+            } else {
+                $w->orWhere('numero', 'like', "%{$term}%")
+                    ->orWhere('ano', 'like', "%{$term}%");
+            }
+        });
+    }
+
+    /**
+     * Filtra por tipo_materia_id.
+     */
+    public function scopeTipo(Builder $query, ?int $tipoId): Builder
+    {
+        if (!$tipoId) {
+            return $query;
+        }
+        return $query->where('tipo_materia_id', $tipoId);
+    }
+
+    // ================================================================= //
+    // |                    NOVO MÉTODO ADICIONADO AQUI                  | //
+    // ================================================================= //
+    /**
+     * Filtra por um status específico.
+     * Só aplica o filtro se um status válido for fornecido.
+     */
+    public function scopeStatus(Builder $query, ?string $status): Builder
+    {
+        // Se o status for nulo, vazio ou inválido, não faz nada.
+        if (empty($status) || !in_array($status, self::STATUS)) {
+            return $query;
+        }
+
+        // Caso contrário, aplica o filtro.
+        return $query->where('status', $status);
+    }
+    
+    /**
+     * Atalho para status 'pronta_pauta' (conveniência para alimentar a Ordem do Dia).
+     */
+    public function scopeProntaPauta(Builder $query): Builder
+    {
+        return $query->where('status', 'pronta_pauta');
+    }
 }

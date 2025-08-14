@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 class Presenca extends Model
 {
@@ -12,21 +13,48 @@ class Presenca extends Model
     protected $table = 'presencas';
 
     protected $fillable = [
-        'sessao_id','vereador_id','status','marcado_em','alterado_em',
-        'justificativa','marcado_por_user_id','alterado_por_user_id',
+        'sessao_id',
+        'vereador_id',
+        'status',
+        'marcado_em',
+        'alterado_em',
+        'justificativa',
+        'marcado_por_user_id',
+        'alterado_por_user_id',
     ];
 
-    // Spatie Activitylog: auditar apenas mudanças
-    protected static $logAttributes = [
-        'status','justificativa','marcado_por_user_id','alterado_por_user_id',
+    /**
+     * Os atributos que devem ser convertidos para tipos nativos.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'marcado_em' => 'datetime',
+        'alterado_em' => 'datetime',
+        'status' => 'string', // Garante que o enum do banco seja tratado como string
     ];
-    protected static $logOnlyDirty = true;
-    protected static $logName = 'presenca';
 
-    public function getDescriptionForEvent(string $eventName): string
+    /**
+     * Configura as opções para o log de atividades (API v4).
+     */
+    public function getActivitylogOptions(): LogOptions
     {
-        return "Presença {$eventName}";
+        return LogOptions::defaults()
+            ->useLogName('presenca')
+            ->logOnly([
+                'status',
+                'justificativa',
+                'marcado_por_user_id',
+                'alterado_por_user_id',
+            ])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs()
+            ->setDescriptionForEvent(fn(string $eventName) => "O registro de presença foi {$eventName}");
     }
+
+    /* ================================================================== */
+    /* |                      RELACIONAMENTOS                           | */
+    /* ================================================================== */
 
     public function sessao()
     {
@@ -40,11 +68,11 @@ class Presenca extends Model
 
     public function marcadoPor()
     {
-        return $this->belongsTo(\App\Models\User::class, 'marcado_por_user_id');
+        return $this->belongsTo(User::class, 'marcado_por_user_id');
     }
 
     public function alteradoPor()
     {
-        return $this->belongsTo(\App\Models\User::class, 'alterado_por_user_id');
+        return $this->belongsTo(User::class, 'alterado_por_user_id');
     }
 }
