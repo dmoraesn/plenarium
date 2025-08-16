@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Sessao;
 use App\Models\Vereador;
+use App\Models\Presenca;
 use App\Http\Requests\SessaoStoreRequest;
+use App\Http\Requests\SessaoUpdateRequest;
 
 class SessaoController extends Controller
 {
@@ -12,32 +14,27 @@ class SessaoController extends Controller
     {
         $this->authorize('viewAny', Sessao::class);
 
-        // Sessão em andamento com a sua lógica de contagem correta
-        $sessaoEmAndamento = Sessao::where('status', 'aberta')
+        // Sessão em andamento (mais recente por data)
+        $sessaoEmAndamento = Sessao::where('status', Sessao::ST_ABERTA)
+            ->orderByDesc('data')
             ->with([
-                'ordemDoDia' => fn ($q) => $q->limit(3),
-                'ordemDoDia.materia.tipo',
-                // Carrega apenas os registros de presença com status 'presente'
-                'presencas' => fn ($q) => $q->where('status', 'presente')->with('vereador'),
+                'ordemDoDia' => fn ($q) => $q->limit(3)->with('materia.tipo'),
+                'presencas'  => fn ($q) => $q->where('status', 'presente')->with('vereador'),
             ])
-            ->withCount([
-                // Conta apenas os presentes e dá um alias para o resultado
-                'presencas as presentes_count' => fn ($q) => $q->where('status', 'presente'),
-            ])
+            ->withCount(['presencas as presentes_count' => fn ($q) => $q->where('status', 'presente')])
             ->first();
 
-        // Próxima sessão agendada
-        $proximaSessao = Sessao::where('status', 'planejada')
-            ->where('data', '>=', now())
+        // Próxima sessão planejada (mais próxima no futuro)
+        $proximaSessao = Sessao::where('status', Sessao::ST_PLANEJADA)
+            ->whereDate('data', '>=', now()->toDateString())
             ->orderBy('data', 'asc')
-            ->with([
-                'ordemDoDia' => fn ($q) => $q->limit(3),
-                'ordemDoDia.materia.tipo',
-            ])
+            ->with(['ordemDoDia' => fn ($q) => $q->limit(3)->with('materia.tipo')])
             ->first();
 
-        // Lista paginada e total de vereadores
-        $sessoes = Sessao::latest('data')->paginate(10);
+        // Histórico paginado
+        $sessoes = Sessao::orderByDesc('data')->paginate(10);
+
+        // Total de vereadores ativos
         $totalVereadores = Vereador::where('ativo', true)->count();
 
         return view('sessoes.index', compact(
@@ -51,30 +48,111 @@ class SessaoController extends Controller
     public function create()
     {
         $this->authorize('create', Sessao::class);
-        $sessao = new Sessao(['data' => now()->format('Y-m-d'), 'ano' => now()->year]);
+
+        $sessao = new Sessao([
+            'data' => now()->format('Y-m-d'),
+            'ano'  => now()->year,
+        ]);
+
         return view('sessoes.create', compact('sessao'));
     }
 
     public function store(SessaoStoreRequest $request)
     {
         $this->authorize('create', Sessao::class);
+
+        // O mutator de status no Model garante normalização.
         Sessao::create($request->validated());
-        return redirect()->route('sessoes.index')->with('success', 'Sessão agendada com sucesso.');
+
+        return redirect()->route('sessoes.index')
+            ->with('success', 'Sessão agendada com sucesso.');
     }
 
-    public function abrir(Sessao $sessao)
+    public function edit(Sessao $sessao)
     {
         $this->authorize('update', $sessao);
-        $sessao->update(['status' => 'aberta', 'aberta_em' => now()]);
-        return back()->with('success', 'Sessão aberta com sucesso!');
+
+        return view('sessoes.edit', compact('sessao'));
     }
 
-    public function encerrar(Sessao $sessao)
+    public function update(SessaoUpdateRequest $request, Sessao $sessao)
     {
         $this->authorize('update', $sessao);
-        $sessao->update(['status' => 'encerrada', 'encerrada_em' => now()]);
-        return back()->with('success', 'Sessão encerrada com sucesso!');
+
+        // O mutator de status normaliza caso esteja no payload.
+        $sessao->update($request->validated());
+
+        return redirect()->route('sessoes.index')
+            ->with('success', 'Sessão atualizada com sucesso.');
     }
 
-    // ... outros métodos ...
+    /**
+     * PUT /sessoes/{sessao}/open
+     * Patch solicitado: tornar idempotente e inicializar presenças.
+     */
+    public function open(Sessao $sessao)
+    {
+        $this->authorize('update', $sessao);
+
+        // Garante status aberto (idempotente)
+        if ($sessao->status !== 'aberta') {
+            $sessao->update([
+                'status'    => 'aberta',
+                'aberta_em' => now(),
+            ]);
+        }
+
+        // Inicializa presenças como "ausente" para todos os vereadores ativos
+        $ativos = Vereador::where('ativo', 1)->pluck('id');
+        $ja     = Presenca::where('sessao_id', $sessao->id)->pluck('vereador_id');
+        $faltam = $ativos->diff($ja);
+
+        if ($faltam->isNotEmpty()) {
+            Presenca::upsert(
+                $faltam->map(fn ($vid) => [
+                    'sessao_id'           => $sessao->id,
+                    'vereador_id'         => $vid,
+                    'status'              => 'ausente',
+                    'marcado_por_user_id' => auth()->id(),
+                    'created_at'          => now(),
+                    'updated_at'          => now(),
+                ])->all(),
+                ['sessao_id', 'vereador_id'],
+                ['status', 'updated_at']
+            );
+        }
+
+        return back()->with('success', 'Sessão aberta e presenças inicializadas.');
+    }
+
+    /**
+     * PUT /sessoes/{sessao}/close
+     * Usar status canônicos.
+     */
+    public function close(Sessao $sessao)
+    {
+        $this->authorize('update', $sessao);
+
+        if ($sessao->normalized_status !== Sessao::ST_ABERTA) {
+            return back()->with('error','Apenas sessões abertas podem ser encerradas.');
+        }
+
+        // grava normalizado
+        $sessao->forceFill(['status' => Sessao::ST_ENCERRADA])->save();
+
+        return redirect()->route('sessoes.index')->with('success','Sessão encerrada com sucesso!');
+    }
+
+    /**
+     * DELETE /sessoes/{sessao}
+     */
+    public function destroy(Sessao $sessao)
+    {
+        $this->authorize('delete', $sessao);
+
+        $sessao->delete();
+
+        return redirect()->route('sessoes.index')
+            ->with('success', 'Sessão excluída com sucesso.');
+    }
 }

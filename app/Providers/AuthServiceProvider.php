@@ -2,38 +2,40 @@
 
 namespace App\Providers;
 
+use App\Models\Sessao;
+use App\Models\User;
+use App\Policies\SessaoPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
-
-// Importe os models e policies
-use App\Models\Sessao;
-use App\Policies\SessaoPolicy;
-use App\Models\Materia;
-use App\Policies\MateriaPolicy;
-
 
 class AuthServiceProvider extends ServiceProvider
 {
     /**
-     * The model to policy mappings for the application.
+     * Map de Models -> Policies.
      *
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        // Adicione esta linha:
-        Sessao::class => SessaoPolicy::class,
-        Materia::class => MateriaPolicy::class, // Exemplo de outra policy
+        \App\Models\Sessao::class => \App\Policies\SessaoPolicy::class,
+        // Adicione outras policies aqui...
     ];
 
     /**
      * Register any authentication / authorization services.
-     *
-     * @return void
      */
-    public function boot()
+    public function boot(): void
     {
         $this->registerPolicies();
 
-        //
+        // Gate genérico para controlar a visibilidade dos itens do menu.
+        Gate::define('menu.ver', function (User $user, ?string $abilityName = null) {
+            // Em ambiente de desenvolvimento, libera todos os itens do menu.
+            if (app()->environment('local')) {
+                return true;
+            }
+
+            // Em produção, implemente sua lógica real de permissões.
+            return true;
+        });
     }
 }

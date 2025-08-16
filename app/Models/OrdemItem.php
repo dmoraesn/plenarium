@@ -3,47 +3,55 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OrdemItem extends Model
 {
-    protected $table = 'ordem_itens';
+    /**
+     * O nome da tabela associada ao modelo.
+     *
+     * @var string
+     */
+    protected $table = 'ordem_itens'; // Verifique se este é o nome da sua tabela na migration
 
+    /**
+     * Os atributos que podem ser atribuídos em massa.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
         'sessao_id',
         'materia_id',
         'posicao',
-        'situacao',
-        'justificativa',
+        'situacao', // Ex: 'em_pauta', 'aprovada', 'rejeitada'
     ];
 
-    public function sessao()
+    /**
+     * Os atributos que devem ser convertidos para tipos nativos.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'posicao' => 'integer',
+    ];
+
+    /* ================================================================== */
+    /* |                      RELACIONAMENTOS                           | */
+    /* ================================================================== */
+
+    /**
+     * Obtém a sessão à qual este item da pauta pertence.
+     */
+    public function sessao(): BelongsTo
     {
-        return $this->belongsTo(Sessao::class);
+        return $this->belongsTo(Sessao::class, 'sessao_id');
     }
 
-    public function materia()
+    /**
+     * Obtém a matéria associada a este item da pauta.
+     */
+    public function materia(): BelongsTo
     {
-        return $this->belongsTo(Materia::class);
-    }
-
-    // Acessor para classes Tailwind conforme a situação
-    protected function situacaoClass(): Attribute
-    {
-        return Attribute::make(
-            get: fn () => match ($this->situacao) {
-                'aprovada' => 'bg-green-100 text-green-800',
-                'rejeitada' => 'bg-red-100 text-red-800',
-                default => 'bg-blue-100 text-blue-800', // em_pauta (ou outras)
-            },
-        );
-    }
-
-    // Acessor para rótulo legível da situação
-    protected function situacaoLabel(): Attribute
-    {
-        return Attribute::make(
-            get: fn () => ucfirst(str_replace('_', ' ', (string) $this->situacao)),
-        );
+        return $this->belongsTo(Materia::class, 'materia_id');
     }
 }

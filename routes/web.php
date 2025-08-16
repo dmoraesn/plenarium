@@ -5,6 +5,7 @@ use App\Http\Controllers\OrdemDoDiaController;
 use App\Http\Controllers\SessaoController;
 use App\Http\Controllers\VereadorController;
 use App\Http\Controllers\MateriaController;
+use App\Http\Controllers\PresencaController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -30,12 +31,13 @@ Route::middleware('auth')->group(function () {
     // --------------------------------------------------
     // Sessões
     // --------------------------------------------------
-    // CRUD padrão
-    Route::resource('sessoes', SessaoController::class);
+    // CRUD padrão (parâmetro singular explícito {sessao})
+    Route::resource('sessoes', SessaoController::class)
+        ->parameters(['sessoes' => 'sessao']);
 
-    // Ações rápidas
-    Route::patch('/sessoes/{sessao}/abrir',    [SessaoController::class, 'abrir'])->name('sessoes.abrir');
-    Route::patch('/sessoes/{sessao}/encerrar', [SessaoController::class, 'encerrar'])->name('sessoes.encerrar');
+    // Ações de status (idempotentes)
+    Route::put('/sessoes/{sessao}/open',  [SessaoController::class, 'open'])->name('sessoes.open');
+    Route::put('/sessoes/{sessao}/close', [SessaoController::class, 'close'])->name('sessoes.close');
 
     // --------------------------------------------------
     // Ordem do Dia
@@ -48,12 +50,31 @@ Route::middleware('auth')->group(function () {
         ->name('sessoes.ordem.destroy');
 
     // --------------------------------------------------
+    // Presenças
+    // --------------------------------------------------
+    // Raiz → sessão mais recente
+    Route::get('/presencas', [PresencaController::class, 'root'])->name('presencas.index');
+
+    // Presenças por sessão + ações
+    Route::prefix('/sessoes/{sessao}/presencas')->name('sessoes.presencas.')->group(function () {
+        Route::get('/', [PresencaController::class, 'index'])->name('index');
+
+        // Ações individuais
+        Route::patch('/{vereador}/toggle', [PresencaController::class, 'toggle'])->name('toggle');
+        Route::patch('/{vereador}/justificar', [PresencaController::class, 'justificar'])->name('justificar');
+        Route::delete('/{vereador}/justificar', [PresencaController::class, 'removerJustificativa'])->name('justificar.delete');
+
+        // Ações em massa
+        Route::patch('/bulk/presentes', [PresencaController::class, 'bulkPresentes'])->name('bulk.presentes');
+        Route::patch('/bulk/reset', [PresencaController::class, 'bulkReset'])->name('bulk.reset');
+    });
+
+    // --------------------------------------------------
     // Vereadores e Matérias
     // --------------------------------------------------
     Route::resource('vereadores', VereadorController::class)
         ->parameters(['vereadores' => 'vereador'])
         ->names('vereadores');
-
     Route::patch('vereadores/{vereador}/toggle', [VereadorController::class, 'toggle'])->name('vereadores.toggle');
 
     Route::resource('materias', MateriaController::class)->names('materias');
@@ -64,7 +85,6 @@ Route::middleware('auth')->group(function () {
 // Páginas WIP (Work in Progress)
 // --------------------------------------------------
 Route::view('/wip', 'wip')->name('wip');
-Route::view('/presencas', 'wip')->name('sessoes.presencas.index');
 Route::view('/configuracoes', 'wip')->name('configuracoes.index');
 Route::view('/relatorios', 'wip')->name('relatorios.index');
 
