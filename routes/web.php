@@ -6,6 +6,14 @@ use App\Http\Controllers\SessaoController;
 use App\Http\Controllers\VereadorController;
 use App\Http\Controllers\MateriaController;
 use App\Http\Controllers\PresencaController;
+use App\Http\Controllers\TipoNormaController;
+use App\Http\Controllers\NormaJuridicaController;
+use App\Http\Controllers\ConfiguracoesController;
+use App\Http\Controllers\LegislaturaController;
+use App\Http\Controllers\SettingController;
+use App\Http\Controllers\PartidoController;
+use App\Http\Controllers\TipoExpedienteController;
+use App\Http\Controllers\CargoMesaController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -31,11 +39,9 @@ Route::middleware('auth')->group(function () {
     // --------------------------------------------------
     // Sessões
     // --------------------------------------------------
-    // CRUD padrão (parâmetro singular explícito {sessao})
     Route::resource('sessoes', SessaoController::class)
         ->parameters(['sessoes' => 'sessao']);
 
-    // Ações de status (idempotentes)
     Route::put('/sessoes/{sessao}/open',  [SessaoController::class, 'open'])->name('sessoes.open');
     Route::put('/sessoes/{sessao}/close', [SessaoController::class, 'close'])->name('sessoes.close');
 
@@ -52,19 +58,15 @@ Route::middleware('auth')->group(function () {
     // --------------------------------------------------
     // Presenças
     // --------------------------------------------------
-    // Raiz → sessão mais recente
     Route::get('/presencas', [PresencaController::class, 'root'])->name('presencas.index');
 
-    // Presenças por sessão + ações
     Route::prefix('/sessoes/{sessao}/presencas')->name('sessoes.presencas.')->group(function () {
         Route::get('/', [PresencaController::class, 'index'])->name('index');
 
-        // Ações individuais
         Route::patch('/{vereador}/toggle', [PresencaController::class, 'toggle'])->name('toggle');
         Route::patch('/{vereador}/justificar', [PresencaController::class, 'justificar'])->name('justificar');
         Route::delete('/{vereador}/justificar', [PresencaController::class, 'removerJustificativa'])->name('justificar.delete');
 
-        // Ações em massa
         Route::patch('/bulk/presentes', [PresencaController::class, 'bulkPresentes'])->name('bulk.presentes');
         Route::patch('/bulk/reset', [PresencaController::class, 'bulkReset'])->name('bulk.reset');
     });
@@ -79,13 +81,56 @@ Route::middleware('auth')->group(function () {
 
     Route::resource('materias', MateriaController::class)->names('materias');
     Route::patch('materias/{materia}/status', [MateriaController::class, 'updateStatus'])->name('materias.status');
+
+    // --------------------------------------------------
+    // Partidos
+    // --------------------------------------------------
+    Route::resource('partidos', PartidoController::class)->except(['show']);
+
+    // --------------------------------------------------
+    // Configurações
+    // --------------------------------------------------
+    Route::get('/configuracoes', [ConfiguracoesController::class, 'index'])->name('config.index');
+
+    Route::prefix('configuracoes')->name('config.')->group(function () {
+        // Tipos de Normas
+        Route::resource('tipo-normas', TipoNormaController::class)
+            ->parameters(['tipo-normas' => 'tipoNorma'])
+            ->names('tipo_normas')
+            ->except(['show']);
+
+        // Normas Jurídicas
+        Route::resource('normas', NormaJuridicaController::class)
+            ->parameters(['normas' => 'norma'])
+            ->names('normas')
+            ->except(['show']);
+
+        // Legislaturas
+        Route::resource('legislaturas', LegislaturaController::class)->except(['show']);
+
+        // Parâmetros do Sistema
+        Route::get('parametros', [SettingController::class, 'edit'])->name('settings.edit');
+        Route::put('parametros', [SettingController::class, 'update'])->name('settings.update');
+
+        // Tipos de Expediente
+        Route::resource('tipos-expediente', TipoExpedienteController::class)
+            ->parameters(['tipos-expediente' => 'tipoExpediente'])
+            ->names('tipo_expediente')
+            ->except(['show']);
+
+        // Cargos da Mesa
+        Route::resource('cargos-mesa', CargoMesaController::class)
+            ->parameters(['cargos-mesa' => 'cargoMesa'])
+            ->names('cargo_mesa')
+            ->except(['show']);
+    });
 });
 
 // --------------------------------------------------
-// Páginas WIP (Work in Progress)
+// Páginas WIP
 // --------------------------------------------------
 Route::view('/wip', 'wip')->name('wip');
-Route::view('/configuracoes', 'wip')->name('configuracoes.index');
+// Route::view('/configuracoes', 'wip')->name('configuracoes.index'); // removida/substituída
 Route::view('/relatorios', 'wip')->name('relatorios.index');
 
 require __DIR__.'/auth.php';
