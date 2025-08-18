@@ -8,12 +8,15 @@ use App\Http\Controllers\MateriaController;
 use App\Http\Controllers\PresencaController;
 use App\Http\Controllers\TipoNormaController;
 use App\Http\Controllers\NormaJuridicaController;
-use App\Http\Controllers\ConfiguracoesController;
+use App\Http\Controllers\ConfiguracaoController;
 use App\Http\Controllers\LegislaturaController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\PartidoController;
 use App\Http\Controllers\TipoExpedienteController;
 use App\Http\Controllers\CargoMesaController;
+use App\Http\Controllers\TipoMateriaController;
+use App\Http\Controllers\TipoTramitacaoController;
+use App\Http\Controllers\TipoVotacaoController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -41,32 +44,37 @@ Route::middleware('auth')->group(function () {
     // --------------------------------------------------
     Route::resource('sessoes', SessaoController::class)
         ->parameters(['sessoes' => 'sessao']);
-
     Route::put('/sessoes/{sessao}/open',  [SessaoController::class, 'open'])->name('sessoes.open');
     Route::put('/sessoes/{sessao}/close', [SessaoController::class, 'close'])->name('sessoes.close');
 
     // --------------------------------------------------
-    // Ordem do Dia
+    // Ordem do Dia (ATUALIZADO)
     // --------------------------------------------------
-    Route::get('/ordem-do-dia', [OrdemDoDiaController::class, 'root'])->name('ordem.index');
+    Route::get('/ordem-do-dia', [OrdemDoDiaController::class, 'root'])->name('ordem-do-dia.index');
     Route::get('/sessoes/{sessao}/ordem-do-dia', [OrdemDoDiaController::class, 'index'])->name('sessoes.ordem.index');
     Route::post('/sessoes/{sessao}/ordem-do-dia/itens', [OrdemDoDiaController::class, 'store'])->name('sessoes.ordem.store');
     Route::delete('/ordem-itens/{item}', [OrdemDoDiaController::class, 'destroy'])
         ->whereNumber('item')
         ->name('sessoes.ordem.destroy');
+    // Rota para a reordenação (PATCH)
+    Route::patch('/sessoes/{sessao}/ordem-do-dia/reordenar', [OrdemDoDiaController::class, 'reorder'])
+        ->name('sessoes.ordem.reorder');
+    Route::patch('/sessoes/{sessao}/ordem-do-dia/{item}/votar', [OrdemDoDiaController::class, 'iniciarVotacao'])
+        ->whereNumber('item')
+        ->name('sessoes.ordem.votar');
+    Route::post('/sessoes/{sessao}/ordem-do-dia/{item}/retirar', [OrdemDoDiaController::class, 'retirarDePauta'])
+        ->whereNumber('item')
+        ->name('sessoes.ordem.retirar');
 
     // --------------------------------------------------
     // Presenças
     // --------------------------------------------------
     Route::get('/presencas', [PresencaController::class, 'root'])->name('presencas.index');
-
     Route::prefix('/sessoes/{sessao}/presencas')->name('sessoes.presencas.')->group(function () {
         Route::get('/', [PresencaController::class, 'index'])->name('index');
-
         Route::patch('/{vereador}/toggle', [PresencaController::class, 'toggle'])->name('toggle');
         Route::patch('/{vereador}/justificar', [PresencaController::class, 'justificar'])->name('justificar');
         Route::delete('/{vereador}/justificar', [PresencaController::class, 'removerJustificativa'])->name('justificar.delete');
-
         Route::patch('/bulk/presentes', [PresencaController::class, 'bulkPresentes'])->name('bulk.presentes');
         Route::patch('/bulk/reset', [PresencaController::class, 'bulkReset'])->name('bulk.reset');
     });
@@ -75,62 +83,72 @@ Route::middleware('auth')->group(function () {
     // Vereadores e Matérias
     // --------------------------------------------------
     Route::resource('vereadores', VereadorController::class)
-        ->parameters(['vereadores' => 'vereador'])
-        ->names('vereadores');
+        ->parameters(['vereadores' => 'vereador']);
     Route::patch('vereadores/{vereador}/toggle', [VereadorController::class, 'toggle'])->name('vereadores.toggle');
 
-    Route::resource('materias', MateriaController::class)->names('materias');
+    Route::resource('materias', MateriaController::class);
     Route::patch('materias/{materia}/status', [MateriaController::class, 'updateStatus'])->name('materias.status');
-
-    // --------------------------------------------------
-    // Partidos
-    // --------------------------------------------------
-    Route::resource('partidos', PartidoController::class)->except(['show']);
 
     // --------------------------------------------------
     // Configurações
     // --------------------------------------------------
-    Route::get('/configuracoes', [ConfiguracoesController::class, 'index'])->name('config.index');
+    Route::get('/configuracoes', [ConfiguracaoController::class, 'index'])->name('configuracoes.index');
 
-    Route::prefix('configuracoes')->name('config.')->group(function () {
-        // Tipos de Normas
-        Route::resource('tipo-normas', TipoNormaController::class)
-            ->parameters(['tipo-normas' => 'tipoNorma'])
-            ->names('tipo_normas')
-            ->except(['show']);
+    Route::prefix('configuracoes')
+        ->name('config.')
+        ->group(function () {
 
-        // Normas Jurídicas
-        Route::resource('normas', NormaJuridicaController::class)
-            ->parameters(['normas' => 'norma'])
-            ->names('normas')
-            ->except(['show']);
+            Route::resource('tipos-materia', TipoMateriaController::class)
+                ->parameters(['tipos-materia' => 'tipoMateria'])
+                ->except(['show']);
+            Route::patch('tipos-materia/{tipoMateria}/toggle', [TipoMateriaController::class, 'toggle'])->name('tipos-materia.toggle');
 
-        // Legislaturas
-        Route::resource('legislaturas', LegislaturaController::class)->except(['show']);
+            Route::resource('tipos-votacao', TipoVotacaoController::class)
+                ->parameters(['tipos-votacao' => 'tipoVotacao'])
+                ->except(['show']);
+            Route::patch('tipos-votacao/{tipoVotacao}/toggle', [TipoVotacaoController::class, 'toggle'])->name('tipos-votacao.toggle');
 
-        // Parâmetros do Sistema
-        Route::get('parametros', [SettingController::class, 'edit'])->name('settings.edit');
-        Route::put('parametros', [SettingController::class, 'update'])->name('settings.update');
+            Route::resource('tipos-expediente', TipoExpedienteController::class)
+                ->parameters(['tipos-expediente' => 'tipoExpediente'])
+                ->except(['show']);
+            Route::patch('tipos-expediente/{tipoExpediente}/toggle', [TipoExpedienteController::class, 'toggle'])->name('tipos-expediente.toggle');
 
-        // Tipos de Expediente
-        Route::resource('tipos-expediente', TipoExpedienteController::class)
-            ->parameters(['tipos-expediente' => 'tipoExpediente'])
-            ->names('tipo_expediente')
-            ->except(['show']);
+            Route::resource('tipos-tramitacao', TipoTramitacaoController::class)
+                ->parameters(['tipos-tramitacao' => 'tipoTramitacao'])
+                ->except(['show']);
 
-        // Cargos da Mesa
-        Route::resource('cargos-mesa', CargoMesaController::class)
-            ->parameters(['cargos-mesa' => 'cargoMesa'])
-            ->names('cargo_mesa')
-            ->except(['show']);
-    });
+            Route::resource('legislaturas', LegislaturaController::class)
+                ->parameters(['legislaturas' => 'legislatura'])
+                ->except(['show']);
+
+            Route::resource('partidos', PartidoController::class)
+                ->parameters(['partidos' => 'partido'])
+                ->except(['show']);
+
+            Route::resource('tipo-normas', TipoNormaController::class)
+                ->parameters(['tipo-normas' => 'tipoNorma'])
+                ->except(['show']);
+
+            Route::resource('normas', NormaJuridicaController::class)
+                ->parameters(['normas' => 'normaJuridica'])
+                ->except(['show']);
+
+            Route::resource('cargos-mesa', CargoMesaController::class)
+                ->parameters(['cargos-mesa' => 'cargoMesa'])
+                ->except(['show']);
+
+            // --------------------------------------------
+            // Parâmetros (mantido como PUT para compatibilidade)
+            // --------------------------------------------
+            Route::get('parametros', [SettingController::class, 'edit'])->name('settings.edit');
+            Route::put('parametros', [SettingController::class, 'update'])->name('settings.update');
+        });
+
+    // --------------------------------------------------
+    // Páginas WIP
+    // --------------------------------------------------
+    Route::view('/wip', 'wip')->name('wip');
+    Route::view('/relatorios', 'wip')->name('relatorios.index');
 });
-
-// --------------------------------------------------
-// Páginas WIP
-// --------------------------------------------------
-Route::view('/wip', 'wip')->name('wip');
-// Route::view('/configuracoes', 'wip')->name('configuracoes.index'); // removida/substituída
-Route::view('/relatorios', 'wip')->name('relatorios.index');
 
 require __DIR__.'/auth.php';

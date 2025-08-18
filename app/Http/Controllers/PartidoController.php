@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\PartidoRequest;
+use App\Http\Requests\PartidoRequest; // Supondo que você tenha um Form Request
 use App\Models\Partido;
+use Illuminate\Http\Request;
 
 class PartidoController extends Controller
 {
@@ -19,10 +20,12 @@ class PartidoController extends Controller
         return view('partidos.create', compact('model'));
     }
 
-    public function store(PartidoRequest $request)
+    public function store(PartidoRequest $request) // Usando o Form Request
     {
         Partido::create($request->validated());
-        return redirect()->route('partidos.index')->with('success', 'Partido criado.');
+        
+        // ROTA CORRIGIDA
+        return redirect()->route('config.partidos.index')->with('success', 'Partido criado com sucesso.');
     }
 
     public function edit(Partido $partido)
@@ -31,15 +34,19 @@ class PartidoController extends Controller
         return view('partidos.edit', compact('model'));
     }
 
-    public function update(PartidoRequest $request, Partido $partido)
+    public function update(PartidoRequest $request, Partido $partido) // Usando o Form Request
     {
         $partido->update($request->validated());
-        return redirect()->route('partidos.index')->with('success', 'Partido atualizado.');
+
+        // ROTA CORRIGIDA
+        return redirect()->route('config.partidos.index')->with('success', 'Partido atualizado com sucesso.');
     }
 
     public function destroy(Partido $partido)
     {
         $partido->delete();
-        return redirect()->route('partidos.index')->with('success', 'Partido removido.');
+
+        // ROTA CORRIGIDA
+        return redirect()->route('config.partidos.index')->with('success', 'Partido removido com sucesso.');
     }
 }

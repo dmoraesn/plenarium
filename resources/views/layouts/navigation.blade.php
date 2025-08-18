@@ -1,23 +1,19 @@
 <nav x-data="{ open: false }" class="bg-white border-b border-gray-100">
-    <!-- Primary Navigation Menu -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
             <div class="flex">
-                <!-- Logo -->
                 <div class="shrink-0 flex items-center">
                     <a href="{{ route('dashboard') }}">
                         <x-application-logo class="block h-9 w-auto fill-current text-gray-800" />
                     </a>
                 </div>
 
-                <!-- Navigation Links -->
                 <div class="hidden space-x-8 sm:-my-px sm:ml-10 sm:flex">
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
 
                     @php
-                        // define 1x e reutiliza (evita "Cannot redeclare ...")
                         if (!function_exists('sisMenuItem')) {
                             function sisMenuItem($label, $href, $abilityName) {
                                 $allowed = \Illuminate\Support\Facades\Gate::allows('menu.ver', $abilityName);
@@ -31,7 +27,6 @@
                                     );
                                 }
 
-                                // sem permissão: visível porém desabilitado
                                 return new \Illuminate\Support\HtmlString(
                                     '<span title="Sem permissão" class="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium leading-5 text-gray-400 cursor-not-allowed opacity-50 select-none">'.$label.'</span>'
                                 );
@@ -44,12 +39,15 @@
                     {!! sisMenuItem('Sessões', url('/sessoes'), 'sessoes.index') !!}
                     {!! sisMenuItem('Ordem do Dia', url('/ordem-do-dia'), 'sessoes.ordem.index') !!}
                     {!! sisMenuItem('Presenças', url('/presencas'), 'sessoes.presencas.index') !!}
-                    {!! sisMenuItem('Configurações', url('/configuracoes'), 'configuracoes.index') !!}
                     {!! sisMenuItem('Relatórios', url('/relatorios'), 'relatorios.index') !!}
+
+                    {{-- 🔧 Ajuste principal: Configurações virou link direto para os cards --}}
+                    <x-nav-link :href="route('configuracoes.index')" :active="request()->routeIs('configuracoes.*')">
+                        {{ __('Configurações') }}
+                    </x-nav-link>
                 </div>
             </div>
 
-            <!-- Settings Dropdown (seguro p/ visitantes) -->
             <div class="hidden sm:flex sm:items-center sm:ml-6">
                 @auth
                     <x-dropdown align="right" width="48">
@@ -69,11 +67,10 @@
                                 {{ __('Profile') }}
                             </x-dropdown-link>
 
-                            <!-- Logout -->
                             <form method="POST" action="{{ route('logout') }}">
                                 @csrf
                                 <x-dropdown-link :href="route('logout')"
-                                    onclick="event.preventDefault(); this.closest('form').submit();">
+                                        onclick="event.preventDefault(); this.closest('form').submit();">
                                     {{ __('Log Out') }}
                                 </x-dropdown-link>
                             </form>
@@ -86,7 +83,6 @@
                 @endauth
             </div>
 
-            <!-- Hamburger -->
             <div class="-mr-2 flex items-center sm:hidden">
                 <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out" aria-expanded="false">
                     <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
@@ -98,15 +94,16 @@
         </div>
     </div>
 
-    <!-- Responsive Navigation Menu -->
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('configuracoes.index')" :active="request()->routeIs('configuracoes.*')">
+                {{ __('Configurações') }}
+            </x-responsive-nav-link>
         </div>
 
-        <!-- Responsive Settings Options -->
         <div class="pt-4 pb-1 border-t border-gray-200">
             @auth
                 <div class="px-4">
@@ -123,11 +120,10 @@
                         {{ __('Profile') }}
                     </x-responsive-nav-link>
 
-                    <!-- Logout -->
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <x-responsive-nav-link :href="route('logout')"
-                            onclick="event.preventDefault(); this.closest('form').submit();">
+                                onclick="event.preventDefault(); this.closest('form').submit();">
                             {{ __('Log Out') }}
                         </x-responsive-nav-link>
                     </form>

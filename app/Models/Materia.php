@@ -65,6 +65,12 @@ class Materia extends Model
     {
         return "{$this->numero}/{$this->ano}";
     }
+    
+    /** Acessor para exibir os nomes dos autores (Autor + Coautores) */
+    public function getAutoresDisplayAttribute(): string
+    {
+        return $this->autores->pluck('nome_parlamentar')->implode(', ');
+    }
 
     /* ============================
      |  Query Scopes
@@ -109,21 +115,15 @@ class Materia extends Model
         return $query->where('tipo_materia_id', $tipoId);
     }
 
-    // ================================================================= //
-    // |                    NOVO MÉTODO ADICIONADO AQUI                  | //
-    // ================================================================= //
     /**
      * Filtra por um status específico.
      * Só aplica o filtro se um status válido for fornecido.
      */
     public function scopeStatus(Builder $query, ?string $status): Builder
     {
-        // Se o status for nulo, vazio ou inválido, não faz nada.
         if (empty($status) || !in_array($status, self::STATUS)) {
             return $query;
         }
-
-        // Caso contrário, aplica o filtro.
         return $query->where('status', $status);
     }
     

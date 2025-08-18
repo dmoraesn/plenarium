@@ -3,30 +3,37 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class TipoExpedienteRequest extends FormRequest
 {
-    public function authorize(): bool
+    /**
+     * Determine if the user is authorized to make this request.
+     *
+     * @return bool
+     */
+    public function authorize()
     {
-        return auth()->check();
+        return true;
     }
 
-    public function rules(): array
+    /**
+     * Get the validation rules that apply to the request.
+     *
+     * @return array<string, mixed>
+     */
+    public function rules()
     {
-        $id = $this->route('tipoExpediente')?->id;
-
         return [
-            'descricao'  => ['required', 'string', 'max:150', 'unique:tipo_expediente,descricao,' . $id],
-            'ordenacao'  => ['nullable', 'integer'],
-            'observacao' => ['nullable', 'string'],
-            'ativo'      => ['boolean'],
+            'descricao' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('tipo_expediente')->ignore($this->tipoExpediente),
+            ],
+            'ordenacao' => 'nullable|integer',
+            'observacao' => 'nullable|string',
+            'ativo' => 'boolean',
         ];
-    }
-
-    protected function prepareForValidation(): void
-    {
-        if ($this->has('ativo') === false) {
-            $this->merge(['ativo' => false]);
-        }
     }
 }

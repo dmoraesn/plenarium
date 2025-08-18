@@ -4,7 +4,7 @@
 <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
     <div class="flex items-center justify-between mb-6">
         <h1 class="text-2xl font-bold text-gray-900">Partidos</h1>
-        <a href="{{ route('partidos.create') }}" class="px-3 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700">Novo Partido</a>
+        <a href="{{ route('config.partidos.create') }}" class="px-3 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700">Novo Partido</a>
     </div>
 
     @if (session('success'))
@@ -35,8 +35,8 @@
                         </td>
                         <td class="px-4 py-2 text-right">
                             <div class="inline-flex gap-2">
-                                <a href="{{ route('partidos.edit', $p) }}" class="px-3 py-1 rounded bg-gray-600 hover:bg-gray-700 text-white text-sm">Editar</a>
-                                <form method="POST" action="{{ route('partidos.destroy', $p) }}" onsubmit="return confirm('Remover este partido?');">
+                                <a href="{{ route('config.partidos.edit', $p) }}" class="px-3 py-1 rounded bg-gray-600 hover:bg-gray-700 text-white text-sm">Editar</a>
+                                <form method="POST" action="{{ route('config.partidos.destroy', $p) }}" onsubmit="return confirm('Remover este partido?');">
                                     @csrf @method('DELETE')
                                     <button class="px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-sm">Excluir</button>
                                 </form>

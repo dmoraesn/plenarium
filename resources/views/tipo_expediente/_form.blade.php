@@ -24,6 +24,7 @@
 </div>
 
 <div class="mt-6 flex justify-end gap-3">
-    <a href="{{ route('config.tipo_expediente.index') }}" class="px-3 py-2 rounded border border-gray-300 text-gray-700">Cancelar</a>
+    {{-- A rota foi corrigida para usar o nome padronizado (plural) --}}
+    <a href="{{ route('config.tipos-expediente.index') }}" class="px-3 py-2 rounded border border-gray-300 text-gray-700">Cancelar</a>
     <button class="px-3 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700">Salvar</button>
 </div>

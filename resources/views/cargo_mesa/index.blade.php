@@ -4,7 +4,8 @@
 <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
     <div class="flex items-center justify-between mb-6">
         <h1 class="text-2xl font-bold text-gray-900">Cargos da Mesa Diretora</h1>
-        <a href="{{ route('config.cargo_mesa.create') }}" class="px-3 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700">Novo Cargo</a>
+        {{-- Rota corrigida para 'config.cargos-mesa.create' --}}
+        <a href="{{ route('config.cargos-mesa.create') }}" class="px-3 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700">Novo Cargo</a>
     </div>
 
     @if (session('success'))
@@ -37,8 +38,10 @@
                         </td>
                         <td class="px-4 py-2 text-right">
                             <div class="inline-flex gap-2">
-                                <a href="{{ route('config.cargo_mesa.edit', $i) }}" class="px-3 py-1 rounded bg-gray-600 hover:bg-gray-700 text-white text-sm">Editar</a>
-                                <form method="POST" action="{{ route('config.cargo_mesa.destroy', $i) }}" onsubmit="return confirm('Remover este cargo?');">
+                                {{-- Rota corrigida para 'config.cargos-mesa.edit' --}}
+                                <a href="{{ route('config.cargos-mesa.edit', $i) }}" class="px-3 py-1 rounded bg-gray-600 hover:bg-gray-700 text-white text-sm">Editar</a>
+                                {{-- Rota corrigida para 'config.cargos-mesa.destroy' --}}
+                                <form method="POST" action="{{ route('config.cargos-mesa.destroy', $i) }}" onsubmit="return confirm('Remover este cargo?');">
                                     @csrf @method('DELETE')
                                     <button class="px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-sm">Excluir</button>
                                 </form>
@@ -47,6 +50,7 @@
                     </tr>
                 @empty
                     <tr>
+                        {{-- Colspan corrigido de 4 para 5 --}}
                         <td colspan="5" class="px-4 py-6 text-center text-gray-500">Nenhum cargo cadastrado.</td>
                     </tr>
                 @endforelse

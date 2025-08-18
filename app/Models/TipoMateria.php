@@ -2,14 +2,19 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class TipoMateria extends Model
 {
-    protected $fillable = ['sigla','nome','ativo'];
+    use HasFactory;
 
-    public function materias()
-    {
-        return $this->hasMany(Materia::class);
-    }
+    // Correção: garantir que o Laravel use a tabela certa
+    protected $table = 'tipo_materias';
+
+    protected $fillable = [
+        'sigla',
+        'nome',
+        'ativo',
+    ];
 }

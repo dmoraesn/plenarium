@@ -6,21 +6,22 @@ use App\Http\Requests\ReordenarOrdemRequest;
 use App\Models\Materia;
 use App\Models\OrdemItem;
 use App\Models\Sessao;
+use App\Models\TipoVotacao;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Gate;
 
 class OrdemDoDiaController extends Controller
 {
     /**
      * GET /ordem-do-dia
-     * Redireciona para a pauta da sessão mais recente (por data).
+     * Redireciona para a pauta da sessão mais recente.
      */
     public function root(Request $request)
     {
         $sessao = Sessao::orderByDesc('data')->firstOrFail();
 
-        // Reutiliza a lógica do index (o index faz a autorização)
         return $this->index($request, $sessao);
     }
 
@@ -32,19 +33,20 @@ class OrdemDoDiaController extends Controller
     {
         $this->authorize('view', $sessao);
 
-        // Itens já na pauta
         $itens = $sessao->ordemDoDia()
-            ->with('materia.tipo')
+            ->with('materia.tipo', 'materia.autores')
             ->get();
 
         $idsNaPauta = $itens->pluck('materia_id');
 
-        // Matérias "pronta_pauta" que NÃO estão na pauta atual
         $materiasDisponiveis = Materia::where('status', 'pronta_pauta')
             ->whereNotIn('id', $idsNaPauta)
+            ->with('tipo', 'autores')
             ->orderBy('ano', 'desc')
             ->orderBy('numero', 'asc')
             ->get();
+
+        $tiposVotacao = TipoVotacao::where('ativo', true)->orderBy('ordenacao')->get();
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -59,6 +61,7 @@ class OrdemDoDiaController extends Controller
                         'numero' => $i->materia->numero,
                         'ano'    => $i->materia->ano,
                         'ementa' => $i->materia->ementa,
+                        'autores' => $i->materia->autores->pluck('nome_parlamentar')->implode(', '),
                     ],
                 ]),
                 'materias_disponiveis' => $materiasDisponiveis->map(fn ($m) => [
@@ -67,79 +70,12 @@ class OrdemDoDiaController extends Controller
                     'numero' => $m->numero,
                     'ano'    => $m->ano,
                     'ementa' => $m->ementa,
+                    'autores' => $m->autores->pluck('nome_parlamentar')->implode(', '),
                 ]),
             ]);
         }
 
-        return view('sessoes.ordem.index', compact('sessao', 'itens', 'materiasDisponiveis'));
-    }
-
-    /**
-     * POST /sessoes/{sessao}/ordem-do-dia/itens
-     * Adiciona uma matéria à pauta da sessão.
-     */
-    public function store(Request $request, Sessao $sessao)
-    {
-        $this->authorize('update', $sessao);
-
-        $validated = $request->validate([
-            'materia_id' => [
-                'required',
-                'integer',
-                Rule::exists('materias', 'id'),
-                // Unicidade da matéria na pauta da MESMA sessão
-                Rule::unique('ordem_itens', 'materia_id')
-                    ->where(fn ($q) => $q->where('sessao_id', $sessao->id)),
-            ],
-        ], [
-            'materia_id.unique' => 'Esta matéria já está na pauta desta sessão.',
-        ]);
-
-        // Próxima posição
-        $nextPos = ((int) $sessao->ordemDoDia()->max('posicao')) + 1;
-
-        $item = OrdemItem::create([
-            'sessao_id'  => $sessao->id,
-            'materia_id' => $validated['materia_id'],
-            'posicao'    => $nextPos,
-            'situacao'   => 'em_pauta', // Assumindo que 'situacao' existe no model OrdemItem
-        ]);
-
-        if ($request->wantsJson()) {
-            return response()->json([
-                'created' => true,
-                'item_id' => $item->id,
-                'posicao' => $item->posicao,
-            ], 201);
-        }
-
-        // Redireciona com flash de sucesso
-        return redirect()
-            ->route('sessoes.ordem.index', $sessao)
-            ->with('success', 'Matéria adicionada à pauta com sucesso!');
-    }
-
-    /**
-     * DELETE /ordem-itens/{item}
-     * Remove um item da pauta.
-     */
-    public function destroy(OrdemItem $item)
-    {
-        // Autoriza pela sessão "dona" do item
-        $this->authorize('update', $item->sessao);
-
-        $sessao = $item->sessao; // usado para redirecionar
-        $item->delete();
-
-        // TODO: Reordenar as posições para não deixar "buracos"
-
-        if (request()->wantsJson()) {
-            return response()->json(['deleted' => true]);
-        }
-
-        return redirect()
-            ->route('sessoes.ordem.index', $sessao)
-            ->with('success', 'Item removido da pauta com sucesso.');
+        return view('sessoes.ordem.index', compact('sessao', 'itens', 'materiasDisponiveis', 'tiposVotacao'));
     }
 
     /**
@@ -155,11 +91,46 @@ class OrdemDoDiaController extends Controller
         DB::transaction(function () use ($itens, $sessao) {
             foreach ($itens as $i) {
                 OrdemItem::where('sessao_id', $sessao->id)
-                    ->where('id', $i['id']) // Supondo que o payload envie 'id'
+                    ->where('id', $i['ordem_item_id'])
                     ->update(['posicao' => $i['posicao']]);
             }
         });
 
-        return response()->json(['reordered' => true]);
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * PATCH /sessoes/{sessao}/ordem-do-dia/{item}/votar
+     * Inicia a votação para um item da pauta.
+     */
+    public function iniciarVotacao(Request $request, Sessao $sessao, OrdemItem $item)
+    {
+        $this->authorize('update', $sessao);
+
+        $item->materia->update(['status' => 'em_votacao']);
+
+        return back()->with('success', 'Votação iniciada para a matéria: ' . $item->materia->identificacao);
+    }
+    
+    /**
+     * POST /sessoes/{sessao}/ordem-do-dia/{item}/retirar
+     * Retira uma matéria da pauta com justificativa.
+     */
+    public function retirarDePauta(Request $request, Sessao $sessao, OrdemItem $item)
+    {
+        $this->authorize('update', $sessao);
+        
+        $request->validate(['justificativa' => 'required|string|max:255']);
+
+        $item->delete();
+
+        // TODO: Reordenar as posições para não deixar "buracos"
+
+        // Log de auditoria da retirada
+        // activity()->performedOn($item->materia)
+        //     ->causedBy(auth()->user())
+        //     ->log('Matéria retirada da pauta com justificativa: ' . $request->justificativa);
+
+        return back()->with('success', 'Matéria retirada da pauta com sucesso.');
     }
 }
